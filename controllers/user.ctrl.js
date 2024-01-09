@@ -9,8 +9,8 @@ const register = asyncHandler(async (req, res, next) => {
     })
     const response = await User.create(req.body)
     return res.status(200).json({
-        status:"Success",
-        response 
+        status: "Success",
+        response
     })
 });
 
