@@ -1,8 +1,10 @@
 const User = require("../models/user")
 const asyncHandler = require("express-async-handler")
 const { generateAccessToken, generateRefreshToken } = require("../utils/jwt")
-const jwt = require("jsonwebtoken")
+const bcrypt = require("bcrypt")
 const crypto = require("crypto-js")
+const jwt = require("jsonwebtoken")
+const sendMail = require("../utils/send-mail")
 const register = asyncHandler(async (req, res, next) => {
     const { email, password, firstName, lastName } = req.body
     if (!email || !password || !firstName || !lastName) return res.status(400).json({
@@ -85,10 +87,44 @@ const logout = asyncHandler(async (req, res, next) => {
         message: "Logout successfully!",
     })
 })
+
+const forgotPassword = asyncHandler(async (req, res, next) => {
+    const { email } = req.query;
+    const emailValid = await User.findOne({ email });
+    if (!emailValid) return next(new Error("This email is not exist"));
+    const token = emailValid.resetTokenGenerate();
+    emailValid.save()
+    const html = `Please click on this link to reset your password <a href=${process.env.URL_SERVER}/api/v1/reset-password/${token}>Verify here</a>`
+    const info = await sendMail(email, html);
+    if (!info) return next(new Error("Invalid in send email"));
+    return res.status(200).json({
+        status: "Success",
+        message: "Send verification code successfully"
+    })
+})
+
+const resetPassword = asyncHandler(async (req, res, next) => {
+    const { password: newPassword, token } = req.body;
+    const tokenHash = crypto.SHA256(token).toString(crypto.enc.Hex)
+    const user = await User.findOne({ passwordResetToken: tokenHash, passwordResetExpired: { $gt: Date.now() } })
+    if (!user) return next(new Error("Invalid Reset Token"));
+    user.password = newPassword;
+    user.passwordChangeAt = Date.now();
+    user.passwordResetExpired = undefined
+    user.passwordResetToken = undefined
+    user.save();
+    return res.json({
+        status: "Success",
+        message: "Reset Password successfully !"
+    })
+});
+
 module.exports = {
     register,
     login,
     refreshToken,
     getCurrent,
-    logout
+    logout,
+    forgotPassword,
+    resetPassword
 }
