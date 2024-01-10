@@ -67,7 +67,13 @@ userSchema.pre("save", async function (next) {
 
 userSchema.methods = {
     isMatch: async function (password) {
-        return await bcrypt.compare(password,this.password)
+        return await bcrypt.compare(password, this.password)
+    },
+    resetToken: function () {
+        const resetToken = crypto.randomBytes(32).toString("hex");
+        this.resetToken = crypto.createHas('sha256').update(resetToken).digest("hex");
+        this.passwordResetExpired = Date.now() + 15 * 60 * 1000;
+        return resetToken;
     }
 }
 
